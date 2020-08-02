@@ -51,5 +51,6 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# ESP-IDF build directory
+# ESP-IDF build files
 build/
+sdkconfig
