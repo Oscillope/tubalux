@@ -54,3 +54,8 @@ dkms.conf
 # ESP-IDF build files
 build/
 sdkconfig
+
+# Completion engine files
+compile_commands.json
+cscope.*
+.clangd/
