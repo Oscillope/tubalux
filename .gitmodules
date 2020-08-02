@@ -1,0 +1,3 @@
+[submodule "components/libssd1306"]
+	path = components/libssd1306
+	url = git@github.com:Oscillope/libssd1306-esp-idf.git
