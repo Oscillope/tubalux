@@ -1,0 +1,14 @@
+menu "LED Strip Configuration"
+    config RMT_TX_GPIO
+        int "RMT TX GPIO"
+        default 18
+        help
+            Set the GPIO channel used for the LED strips
+
+    config NUM_LEDS
+        int "Number of LEDs"
+        default 32
+        help
+            Set the number of LEDs in the strip
+
+endmenu
