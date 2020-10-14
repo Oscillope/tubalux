@@ -6,7 +6,7 @@
 
 #include "leds.h"
 
-#define TAG "leds"
+#define TAG "LEDs"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
 /**
@@ -61,6 +61,36 @@ void led_strip_hsv2rgb(uint32_t h, uint32_t s, uint32_t v, uint32_t *r, uint32_t
 	}
 }
 
+void led_loop(void* parameters)
+{
+	uint32_t red = 0;
+	uint32_t green = 0;
+	uint32_t blue = 0;
+	uint16_t hue = 0;
+	uint16_t start_rgb = 0;
+	led_strip_t* strip = (led_strip_t*)parameters;
+
+	// Show simple rainbow chasing pattern
+	ESP_LOGI(TAG, "LED Rainbow Chase Start");
+	while (true) {
+		for (int i = 0; i < 3; i++) {
+			for (int j = i; j < CONFIG_NUM_LEDS; j += 3) {
+				// Build RGB values
+				hue = j * 360 / CONFIG_NUM_LEDS + start_rgb;
+				led_strip_hsv2rgb(hue, 100, 100, &red, &green, &blue);
+				// Write RGB values to strip driver
+				ESP_ERROR_CHECK(strip->set_pixel(strip, j, red, green, blue));
+			}
+			// Flush RGB values to LEDs
+			ESP_ERROR_CHECK(strip->refresh(strip, 50));
+			vTaskDelay(pdMS_TO_TICKS(100));
+			strip->clear(strip, 50);
+			vTaskDelay(pdMS_TO_TICKS(100));
+		}
+		start_rgb += 60;
+	}
+}
+
 int led_init(void)
 {
 	rmt_config_t config = RMT_DEFAULT_CONFIG_TX(CONFIG_RMT_TX_GPIO, RMT_TX_CHANNEL);
@@ -70,33 +100,11 @@ int led_init(void)
 	ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
 
 	led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(CONFIG_NUM_LEDS, (led_strip_dev_t)config.channel);
-	led_strip_t *strip = led_strip_new_rmt_ws2812(&strip_config);
+	led_strip_t* strip = led_strip_new_rmt_ws2812(&strip_config);
 
 	ESP_ERROR_CHECK(strip->clear(strip, 100));
 
-    uint32_t red = 0;
-    uint32_t green = 0;
-    uint32_t blue = 0;
-    uint16_t hue = 0;
-    uint16_t start_rgb = 0;
+	xTaskCreatePinnedToCore(led_loop, "LED loop", 4096, strip, 2, NULL, 0);
 
-    // Show simple rainbow chasing pattern
-    ESP_LOGI(TAG, "LED Rainbow Chase Start");
-    while (true) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = i; j < CONFIG_NUM_LEDS; j += 3) {
-                // Build RGB values
-                hue = j * 360 / CONFIG_NUM_LEDS + start_rgb;
-                led_strip_hsv2rgb(hue, 100, 100, &red, &green, &blue);
-                // Write RGB values to strip driver
-                ESP_ERROR_CHECK(strip->set_pixel(strip, j, red, green, blue));
-            }
-            // Flush RGB values to LEDs
-            ESP_ERROR_CHECK(strip->refresh(strip, 0));
-            vTaskDelay(pdMS_TO_TICKS(100));
-            strip->clear(strip, 50);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        start_rgb += 60;
-    }
+	return 0;
 }
