@@ -4,6 +4,7 @@
 #include "driver/rmt.h"
 #include "led_strip.h"
 
+#include "led_patterns.h"
 #include "leds.h"
 
 #define TAG "LEDs"
@@ -77,15 +78,14 @@ void led_loop(void* parameters)
 			for (int j = i; j < CONFIG_NUM_LEDS; j += 3) {
 				// Build RGB values
 				hue = j * 360 / CONFIG_NUM_LEDS + start_rgb;
-				led_strip_hsv2rgb(hue, 100, 100, &red, &green, &blue);
+				led_strip_hsv2rgb(hue, 100, 20, &red, &green, &blue);
 				// Write RGB values to strip driver
 				ESP_ERROR_CHECK(strip->set_pixel(strip, j, red, green, blue));
 			}
 			// Flush RGB values to LEDs
-			ESP_ERROR_CHECK(strip->refresh(strip, 50));
-			vTaskDelay(pdMS_TO_TICKS(100));
-			strip->clear(strip, 50);
-			vTaskDelay(pdMS_TO_TICKS(100));
+			ESP_ERROR_CHECK(strip->refresh(strip, 0));
+			vTaskDelay(pdMS_TO_TICKS(200));
+			//get_led_pattern()->step(i);
 		}
 		start_rgb += 60;
 	}
