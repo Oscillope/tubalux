@@ -11,7 +11,7 @@ typedef struct {
 	void (*start)(led_strip_t*);
 } led_pattern_t;
 
-#define LED_NUM_PATTERNS	3
+#define LED_NUM_PATTERNS	5
 
 led_pattern_t* get_patterns(void);
 ui_menu_t* get_pattern_menu(void);

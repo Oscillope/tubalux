@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -28,7 +30,7 @@ void pat_rainbow(led_strip_t* strip)
 void pat_bounce(led_strip_t* strip)
 {
 	int pos = 0, i = 0;
-	uint8_t reverse = 0;
+	bool reverse = 0;
 	while (!led_should_stop()) {
 		uint8_t r, g, b;
 		if (reverse) {
@@ -41,7 +43,7 @@ void pat_bounce(led_strip_t* strip)
 		ESP_ERROR_CHECK(strip->refresh(strip, 0));
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, 0, 0, 0));
 		if (pos == (CONFIG_NUM_LEDS - 1)) {
-			reverse = ~reverse;
+			reverse = !reverse;
 		}
 		pos = (pos + 1) % CONFIG_NUM_LEDS;
 		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
@@ -67,48 +69,70 @@ void pat_marquee(led_strip_t* strip)
 	}
 }
 
+void pat_rainbowcyl(led_strip_t* strip)
+{
+	int pos = 0, i = 0;
+	bool reverse = false;
+	int step = 360 / CONFIG_NUM_LEDS;
+	while (!led_should_stop()) {
+		uint8_t r, g, b;
+		int hue = (pos * step) % 360;
+		if (reverse) {
+			i = CONFIG_NUM_LEDS - pos - 1;
+		} else {
+			i = pos;
+		}
+		led_strip_hsv2rgb(hue, 100, led_get_intensity(), &r, &g, &b);
+		ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+		ESP_ERROR_CHECK(strip->refresh(strip, 0));
+		ESP_ERROR_CHECK(strip->set_pixel(strip, i, 0, 0, 0));
+		if (pos == (CONFIG_NUM_LEDS - 1)) {
+			reverse = !reverse;
+		}
+		pos = (pos + 1) % CONFIG_NUM_LEDS;
+		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
+	}
+}
+
+void pat_solid(led_strip_t* strip)
+{
+	for (int i = 0; i < CONFIG_NUM_LEDS; i++) {
+		uint8_t r, g, b;
+		led_strip_hsv2rgb(led_get_primary_hue(), 100, led_get_intensity(), &r, &g, &b);
+		ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+	}
+	ESP_ERROR_CHECK(strip->refresh(strip, 0));
+	while (!led_should_stop()) {
+		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
+	}
+}
+
 /*
-	def pat_rainbowcyl(self, num):
-		pos = 0
-		reverse = 0
-		step = 360 / num
-		while (not self.pat_chg):
-			if (reverse):
-				i = num - pos - 1
-			else:
-				i = pos
-			hue = (pos * step) % 360
-			self.leds[i] = self.hsv2rgb(hue, 1, self.intens)
-			self.leds.write()
-			self.leds[i] = (0, 0, 0)
-			if (pos == (num - 1)):
-				reverse = not reverse
-			pos = (pos + 1) % num
-			sleep(self.period / 8)
-
-	def pat_solid(self, num):
+void pat_pulse(led_strip_t* strip)
+{
+	int pos = 0;
+	bool pulsing = 0;
+	while (!led_should_stop()) {
+		if (pos == 0) {
+			pulsing = !pulsing;
+		}
 		self.leds.fill(self.hsv2rgb(self.hue, 1, self.intens))
+		if (pulsing) {
+			int i = 0;
+			for (i = 0; i < (pos - 8); i += pos) {
+				if (i >= 0):
+					self.leds[i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (pos - i))))
+			}
+			self.leds[pos] = (0, 0, 0)
+		elif (pos < 8):
+			for i in range(1, 9 - pos):
+				self.leds[num - i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (i + pos))))
+		}
 		self.leds.write()
-		self.led_timer_stop()
-
-	def pat_pulse(self, num):
-		pos = 0
-		pulsing = 0
-		while (not self.pat_chg):
-			if (pos == 0):
-				pulsing = not pulsing
-			self.leds.fill(self.hsv2rgb(self.hue, 1, self.intens))
-			if (pulsing):
-				for i in range(pos - 8, pos):
-					if (i >= 0):
-						self.leds[i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (pos - i))))
-				self.leds[pos] = (0, 0, 0)
-			elif (pos < 8):
-				for i in range(1, 9 - pos):
-					self.leds[num - i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (i + pos))))
-			self.leds.write()
-			pos = (pos + 1) % num
-			sleep(self.period / 4)
+		pos = (pos + 1) % num
+		sleep(self.period / 4)
+	}
+}
 
 	def pat_radar(self, num):
 		self.leds.fill((0, 0, 0))
@@ -158,42 +182,44 @@ void pat_marquee(led_strip_t* strip)
 				cycle = (cycle + 1) % 3
 			sleep(self.period / 16)
 
-	# adapted from an arduino pattern at:
-	# http://www.funkboxing.com/wordpress/wp-content/_postfiles/fluxbox_octo.ino
-	def _pat_flame_internal(self, hmin, hmax, num):
-		acolor = (0, 0, 0)
-		hdif = hmax-hmin;
-		ahue = hmin
-		self.leds.fill((0, 0, 0))
-		self.leds.write()
-		while (not self.pat_chg):
-			idelay = random.randint(2,20)
-			randtemp = random.randint(3,9)
-			hinc = (hdif/float(num))+randtemp
-			spread = random.randint(5, 40)
-			start = random.randint(0, num-spread)
-			for i in range(start, start + spread):
-				if ((ahue + hinc) > hmax):
-					ahue = hmin
-				else:
-					ahue = ahue + hinc
-				acolor = self.hsv2rgb(ahue, 1, self.intens)
-				self.leds[i] = acolor
-				self.leds[num - i - 1] = acolor
-				self.leds.write()
-				sleep(idelay/100.0);
+# adapted from an arduino pattern at:
+# http://www.funkboxing.com/wordpress/wp-content/_postfiles/fluxbox_octo.ino
+void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
+{
+	uint8_t r, g, b;
+	int hdif = hmax-hmin;
+	uint32_t ahue = hmin;
+	ESP_ERROR_CHECK(strip->clear(strip, 0));
+	while (!led_should_stop()){
+		uint32_t idelay = (20 / esp_random()) + 2;
+		uint32_t randtemp = (6 / esp_random()) + 3;
+		uint32_t hinc = (hdif/CONFIG_NUM_LEDS) + randtemp;
+		spread = random.randint(5, 40)
+		start = random.randint(0, num-spread)
+		for i in range(start, start + spread):
+			if ((ahue + hinc) > hmax):
+				ahue = hmin
+			else:
+				ahue = ahue + hinc
+			acolor = self.hsv2rgb(ahue, 1, self.intens)
+			self.leds[i] = acolor
+			self.leds[num - i - 1] = acolor
+			self.leds.write()
+			sleep(idelay/100.0);
+	}
+}
 
-	def pat_flame(self, num):
-		self._pat_flame_internal(0.1, 40.0, num)
+def pat_flame(self, num):
+	self._pat_flame_internal(0.1, 40.0, num)
 
-	def pat_flame_g(self, num):
-		self._pat_flame_internal(80.0, 160.0, num)
+def pat_flame_g(self, num):
+	self._pat_flame_internal(80.0, 160.0, num)
 
-	def pat_flame_b(self, num):
-		self._pat_flame_internal(170.0, 290.0, num)
+def pat_flame_b(self, num):
+	self._pat_flame_internal(170.0, 290.0, num)
 
-	def pat_flame_rbow(self, num):
-		self._pat_flame_internal(0.1, 360.0, num)
+def pat_flame_rbow(self, num):
+	self._pat_flame_internal(0.1, 360.0, num)
 */
 
 led_pattern_t patterns[LED_NUM_PATTERNS] = {
@@ -208,6 +234,14 @@ led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "Marquee",
 		.start = pat_marquee,
+	},
+	(led_pattern_t) {
+		.name = "RCylon",
+		.start = pat_rainbowcyl,
+	},
+	(led_pattern_t) {
+		.name = "Solid",
+		.start = pat_solid,
 	},
 };
 
