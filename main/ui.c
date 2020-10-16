@@ -9,6 +9,7 @@
 #include "ssd1306.h"
 #include "font8x8_basic.h"
 
+#include "leds.h"
 #include "led_patterns.h"
 #include "ui.h"
 
@@ -32,10 +33,13 @@ typedef enum {
 	UI_STATE_IDLE,
 	UI_STATE_PATTERN,
 	UI_STATE_TEMPO,
+	UI_STATE_COLOR,
+	UI_STATE_INTENSITY,
 	UI_STATE_MAX
 } ui_state_t;
 
 static ui_state_t state = UI_STATE_IDLE;
+static ui_menu_t* cur_menu = NULL;
 
 uint8_t ui_change_state(ui_state_t new_state)
 {
@@ -47,19 +51,30 @@ uint8_t ui_change_state(ui_state_t new_state)
 	return 0;
 }
 
+int8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t dir)
+{
+	if (cur_menu != menu || (dir && (menu->selection + dir >= 0) && (menu->selection + dir < menu_items))) {
+		ssd1306_software_scroll(dev, 1, 7);
+		menu->selection += dir;
+		for (int i = 0; i < menu_items; i++) {
+			ssd1306_scroll_text(dev, menu[i].name, sizeof(menu[i].name), (i == menu->selection));
+		}
+		cur_menu = menu;
+	}
+	return cur_menu->selection;
+}
+
 void ui_loop(void* parameters)
 {
 	SSD1306_t* dev = (SSD1306_t*)parameters;
 
-	const char* line = "    tubalux";
 	ssd1306_clear_screen(dev, false);
-	ssd1306_display_text(dev, 0, line, strlen(line), false);
+	ssd1306_display_text(dev, 0, "    tubalux", 16, false);
 	ssd1306_hardware_scroll(dev, SCROLL_DOWN);
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	ssd1306_hardware_scroll(dev, SCROLL_UP);
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	ssd1306_hardware_scroll(dev, SCROLL_STOP);
-	//ssd1306_fadeout(dev);
 	ssd1306_clear_screen(dev, false);
 
 	/* Battery ADC setup */
@@ -109,8 +124,9 @@ void ui_loop(void* parameters)
 					ui_change_state(UI_STATE_OFF);
 				}
 			}
-			ssd1306_display_text(dev, 3, "     config", 11, false);
+			ssd1306_display_text(dev, 3, "     color", 11, false);
 			ssd1306_display_text(dev, 4, "   pat + tempo", 14, false);
+			ssd1306_display_text(dev, 5, "     intens.", 12, false);
 			/* fall through */
 		case UI_STATE_OFF:
 			if (current) {
@@ -124,6 +140,12 @@ void ui_loop(void* parameters)
 						break;
 					case UI_BTN_R:
 						new_state = UI_STATE_TEMPO;
+						break;
+					case UI_BTN_UP:
+						new_state = UI_STATE_COLOR;
+						break;
+					case UI_BTN_DN:
+						new_state = UI_STATE_INTENSITY;
 						break;
 					default:
 						break;
@@ -139,21 +161,37 @@ void ui_loop(void* parameters)
 			break;
 		case UI_STATE_PATTERN:
 		{
-			led_pattern_t* patterns = get_patterns();
-			ssd1306_software_scroll(dev, 1, 7);
-			for (int i = 0; i < LED_NUM_PATTERNS; i++) {
-				ssd1306_scroll_text(dev, patterns[i].name, strlen(patterns[i].name), (i == 0));
-			}
-
+			ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
 			switch (current) {
 			case UI_BTN_NONE:
 				idle_timer += UI_LOOP_PERIOD;
 				if (idle_timer > UI_IDLE_TIMEOUT) {
-					ssd1306_fadeout(dev);
-					ssd1306_contrast(dev, 0);
-					ui_change_state(UI_STATE_OFF);
+					idle_timer = 0;
+					cur_menu = NULL;
+					if (ui_change_state(UI_STATE_IDLE)) {
+						ssd1306_clear_screen(dev, false);
+					}
 				}
 				break;
+			case UI_BTN_UP:
+				idle_timer = 0;
+				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 1);
+				break;
+			case UI_BTN_DN:
+				idle_timer = 0;
+				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, -1);
+				break;
+			case UI_BTN_PRS:
+			{
+				led_pattern_t* patterns = get_patterns();
+				int8_t selection = ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
+				led_set_pattern(&patterns[selection]);
+				idle_timer = 0;
+				cur_menu = NULL;
+				ssd1306_clear_screen(dev, false);
+				ui_change_state(UI_STATE_IDLE);
+				break;
+			}
 			default:
 				break;
 			}
@@ -164,7 +202,7 @@ void ui_loop(void* parameters)
 		}
 		after = xTaskGetTickCount();
 
-		if (after - before > 1) {
+		if (after - before > 10) {
 			ESP_LOGI(TAG, "this loop took %d", ((after - before) * portTICK_PERIOD_MS));
 		}
 

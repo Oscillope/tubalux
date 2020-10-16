@@ -3,6 +3,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "led_strip.h"
+#include "ui.h"
 
 typedef struct {
 	/* this must be first! */
@@ -13,5 +14,7 @@ typedef struct {
 #define LED_NUM_PATTERNS	3
 
 led_pattern_t* get_patterns(void);
+ui_menu_t* get_pattern_menu(void);
+void led_pattern_init(void);
 
 #endif /* LED_PATTERNS_H */

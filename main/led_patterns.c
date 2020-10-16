@@ -1,3 +1,4 @@
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -195,7 +196,7 @@ void pat_marquee(led_strip_t* strip)
 		self._pat_flame_internal(0.1, 360.0, num)
 */
 
-led_pattern_t patterns[] = {
+led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "Rainbow",
 		.start = pat_rainbow,
@@ -210,7 +211,21 @@ led_pattern_t patterns[] = {
 	},
 };
 
+ui_menu_t led_pattern_menu[LED_NUM_PATTERNS];
+
 led_pattern_t* get_patterns()
 {
 	return patterns;
+}
+
+ui_menu_t* get_pattern_menu()
+{
+	return led_pattern_menu;
+}
+
+void led_pattern_init()
+{
+	for (int i = 0; i < LED_NUM_PATTERNS; i++) {
+		strcpy(led_pattern_menu[i].name, patterns[i].name);
+	}
 }

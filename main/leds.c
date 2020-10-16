@@ -124,7 +124,7 @@ void led_loop(void* parameters)
 	// Show simple rainbow chasing pattern
 	ESP_LOGI(TAG, "LED Thread Start");
 	while (true) {
-		ESP_LOGI(TAG, "LED pattern %s", cur_pattern->name);
+		ESP_LOGI(TAG, "Starting pattern %s", cur_pattern->name);
 		cur_pattern->start(strip);
 	}
 }
