@@ -65,6 +65,12 @@ uint32_t led_get_period()
 	return period;
 }
 
+uint32_t led_get_num()
+{
+	// Someday this may come from EEPROM
+	return CONFIG_NUM_LEDS;
+}
+
 /**
  * @brief Simple helper function, converting HSV color space to RGB color space
  *

@@ -17,6 +17,7 @@ void led_set_pattern(led_pattern_t* pattern);
 led_pattern_t* led_get_pattern(void);
 void led_set_period(uint32_t new);
 uint32_t led_get_period(void);
+uint32_t led_get_num(void);
 
 int led_init(void);
 #endif /* LEDS_H */
