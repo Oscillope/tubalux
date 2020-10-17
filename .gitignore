@@ -54,6 +54,7 @@ dkms.conf
 # ESP-IDF build files
 build/
 sdkconfig
+sdkconfig.old
 
 # Completion engine files
 compile_commands.json
