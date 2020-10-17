@@ -107,33 +107,39 @@ void pat_solid(led_strip_t* strip)
 	}
 }
 
-/*
 void pat_pulse(led_strip_t* strip)
 {
 	int pos = 0;
 	bool pulsing = 0;
 	while (!led_should_stop()) {
+		int i = 0;
+		uint8_t r, g, b;
+		uint32_t intensity;
 		if (pos == 0) {
 			pulsing = !pulsing;
 		}
-		self.leds.fill(self.hsv2rgb(self.hue, 1, self.intens))
 		if (pulsing) {
-			int i = 0;
-			for (i = 0; i < (pos - 8); i += pos) {
-				if (i >= 0):
-					self.leds[i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (pos - i))))
+			for (i = (pos - 8); i < pos; i++) {
+				if (i >= 0) {
+					intensity = led_get_intensity() / (1 << (9 - (pos - i)));
+					led_strip_hsv2rgb(led_get_primary_hue(), 100, intensity , &r, &g, &b);
+					ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+				}
 			}
-			self.leds[pos] = (0, 0, 0)
-		elif (pos < 8):
-			for i in range(1, 9 - pos):
-				self.leds[num - i] = self.hsv2rgb(self.hue, 1, self.intens / (2 ** (9 - (i + pos))))
+		} else if (pos < 8) {
+			for (i = 1; i < 9 - pos; i++) {
+				intensity = led_get_intensity() / (1 << (9 - (pos + i)));
+				led_strip_hsv2rgb(led_get_primary_hue(), 100, intensity, &r, &g, &b);
+				ESP_ERROR_CHECK(strip->set_pixel(strip, (led_get_num() - i), r, g, b));
+			}
 		}
-		self.leds.write()
-		pos = (pos + 1) % num
-		sleep(self.period / 4)
+		ESP_ERROR_CHECK(strip->refresh(strip, 0));
+		pos = (pos + 1) % led_get_num();
+		vTaskDelay(pdMS_TO_TICKS(led_get_period() / 4));
 	}
 }
 
+/*
 	def pat_radar(self, num):
 		self.leds.fill((0, 0, 0))
 		pos = 0
@@ -248,12 +254,16 @@ led_pattern_t patterns[LED_NUM_PATTERNS] = {
 		.start = pat_bounce,
 	},
 	(led_pattern_t) {
+		.name = "RCylon",
+		.start = pat_rainbowcyl,
+	},
+	(led_pattern_t) {
 		.name = "Marquee",
 		.start = pat_marquee,
 	},
 	(led_pattern_t) {
-		.name = "RCylon",
-		.start = pat_rainbowcyl,
+		.name = "Pulse",
+		.start = pat_pulse,
 	},
 	(led_pattern_t) {
 		.name = "R flame",
