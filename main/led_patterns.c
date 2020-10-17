@@ -12,17 +12,17 @@
 
 void pat_rainbow(led_strip_t* strip)
 {
-	int step = 360 / CONFIG_NUM_LEDS;
+	int step = 360 / led_get_num();
 	int pos = 0;
 	while (!led_should_stop()) {
-		for (int i = 0; i < CONFIG_NUM_LEDS; i++) {
+		for (int i = 0; i < led_get_num(); i++) {
 			uint32_t hue = ((i + pos) * step) % 360;
 			uint8_t r, g, b;
 			led_strip_hsv2rgb(hue, 100, led_get_intensity(), &r, &g, &b);
 			ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
 		}
 		ESP_ERROR_CHECK(strip->refresh(strip, 0));
-		pos = (pos + 1) % CONFIG_NUM_LEDS;
+		pos = (pos + 1) % led_get_num();
 		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
 	}
 }
@@ -34,7 +34,7 @@ void pat_bounce(led_strip_t* strip)
 	while (!led_should_stop()) {
 		uint8_t r, g, b;
 		if (reverse) {
-			i = CONFIG_NUM_LEDS - pos - 1;
+			i = led_get_num() - pos - 1;
 		} else {
 			i = pos;
 		}
@@ -42,10 +42,10 @@ void pat_bounce(led_strip_t* strip)
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
 		ESP_ERROR_CHECK(strip->refresh(strip, 0));
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, 0, 0, 0));
-		if (pos == (CONFIG_NUM_LEDS - 1)) {
+		if (pos == (led_get_num() - 1)) {
 			reverse = !reverse;
 		}
-		pos = (pos + 1) % CONFIG_NUM_LEDS;
+		pos = (pos + 1) % led_get_num();
 		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
 	}
 }
@@ -54,7 +54,7 @@ void pat_marquee(led_strip_t* strip)
 {
 	int pos = 0;
 	while (!led_should_stop()) {
-		for (int i = 0; i < CONFIG_NUM_LEDS; i++) {
+		for (int i = 0; i < led_get_num(); i++) {
 			uint8_t r, g, b;
 			if ((i + pos) % 4 == 0) {
 				led_strip_hsv2rgb(led_get_primary_hue(), 100, led_get_intensity(), &r, &g, &b);
@@ -64,7 +64,7 @@ void pat_marquee(led_strip_t* strip)
 			ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
 		}
 		ESP_ERROR_CHECK(strip->refresh(strip, 0));
-		pos = (pos + 1) % CONFIG_NUM_LEDS;
+		pos = (pos + 1) % led_get_num();
 		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
 	}
 }
@@ -73,12 +73,12 @@ void pat_rainbowcyl(led_strip_t* strip)
 {
 	int pos = 0, i = 0;
 	bool reverse = false;
-	int step = 360 / CONFIG_NUM_LEDS;
+	int step = 360 / led_get_num();
 	while (!led_should_stop()) {
 		uint8_t r, g, b;
 		int hue = (pos * step) % 360;
 		if (reverse) {
-			i = CONFIG_NUM_LEDS - pos - 1;
+			i = led_get_num() - pos - 1;
 		} else {
 			i = pos;
 		}
@@ -86,17 +86,17 @@ void pat_rainbowcyl(led_strip_t* strip)
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
 		ESP_ERROR_CHECK(strip->refresh(strip, 0));
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, 0, 0, 0));
-		if (pos == (CONFIG_NUM_LEDS - 1)) {
+		if (pos == (led_get_num() - 1)) {
 			reverse = !reverse;
 		}
-		pos = (pos + 1) % CONFIG_NUM_LEDS;
+		pos = (pos + 1) % led_get_num();
 		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
 	}
 }
 
 void pat_solid(led_strip_t* strip)
 {
-	for (int i = 0; i < CONFIG_NUM_LEDS; i++) {
+	for (int i = 0; i < led_get_num(); i++) {
 		uint8_t r, g, b;
 		led_strip_hsv2rgb(led_get_primary_hue(), 100, led_get_intensity(), &r, &g, &b);
 		ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
@@ -181,46 +181,62 @@ void pat_pulse(led_strip_t* strip)
 			if (pos == 0):
 				cycle = (cycle + 1) % 3
 			sleep(self.period / 16)
+*/
 
-# adapted from an arduino pattern at:
-# http://www.funkboxing.com/wordpress/wp-content/_postfiles/fluxbox_octo.ino
+uint32_t esp_random_range(uint32_t min, uint32_t max)
+{
+	return (((esp_random() * (max - min)) / UINT_MAX) + min);
+}
+
+// adapted from an arduino pattern at:
+// http://www.funkboxing.com/wordpress/wp-content/_postfiles/fluxbox_octo.ino
 void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
 {
 	uint8_t r, g, b;
-	int hdif = hmax-hmin;
+	int hdif = hmax - hmin;
 	uint32_t ahue = hmin;
 	ESP_ERROR_CHECK(strip->clear(strip, 0));
 	while (!led_should_stop()){
-		uint32_t idelay = (20 / esp_random()) + 2;
-		uint32_t randtemp = (6 / esp_random()) + 3;
-		uint32_t hinc = (hdif/CONFIG_NUM_LEDS) + randtemp;
-		spread = random.randint(5, 40)
-		start = random.randint(0, num-spread)
-		for i in range(start, start + spread):
-			if ((ahue + hinc) > hmax):
-				ahue = hmin
-			else:
-				ahue = ahue + hinc
-			acolor = self.hsv2rgb(ahue, 1, self.intens)
-			self.leds[i] = acolor
-			self.leds[num - i - 1] = acolor
-			self.leds.write()
-			sleep(idelay/100.0);
+		uint32_t idelay = esp_random_range(2, 20);
+		uint32_t randtemp = esp_random_range(3, 6);
+		uint32_t hinc = (hdif / led_get_num()) + randtemp;
+		uint32_t spread = esp_random_range(5, 40);
+		uint32_t start = esp_random_range(0, led_get_num() - spread);
+		for (int i = start; i < (start + spread); i++) {
+			if ((ahue + hinc) > hmax) {
+				ahue = hmin;
+			} else {
+				ahue = ahue + hinc;
+			}
+			led_strip_hsv2rgb(ahue, 100, led_get_intensity(), &r, &g, &b);
+			ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+			ESP_ERROR_CHECK(strip->set_pixel(strip, led_get_num() - i - 1, r, g, b));
+			ESP_ERROR_CHECK(strip->refresh(strip, 0));
+			vTaskDelay(pdMS_TO_TICKS(idelay));
+		}
+		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
 	}
 }
 
-def pat_flame(self, num):
-	self._pat_flame_internal(0.1, 40.0, num)
+void pat_flame(led_strip_t* strip)
+{
+	_pat_flame_internal(strip, 0, 40);
+}
 
-def pat_flame_g(self, num):
-	self._pat_flame_internal(80.0, 160.0, num)
+void pat_flame_g(led_strip_t* strip)
+{
+	_pat_flame_internal(strip, 80, 160);
+}
 
-def pat_flame_b(self, num):
-	self._pat_flame_internal(170.0, 290.0, num)
+void pat_flame_b(led_strip_t* strip)
+{
+	_pat_flame_internal(strip, 170, 290);
+}
 
-def pat_flame_rbow(self, num):
-	self._pat_flame_internal(0.1, 360.0, num)
-*/
+void pat_flame_rbow(led_strip_t* strip)
+{
+	_pat_flame_internal(strip, 0, 360);
+}
 
 led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
@@ -238,6 +254,22 @@ led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "RCylon",
 		.start = pat_rainbowcyl,
+	},
+	(led_pattern_t) {
+		.name = "R flame",
+		.start = pat_flame,
+	},
+	(led_pattern_t) {
+		.name = "G flame",
+		.start = pat_flame_g,
+	},
+	(led_pattern_t) {
+		.name = "B flame",
+		.start = pat_flame_b,
+	},
+	(led_pattern_t) {
+		.name = "RB flame",
+		.start = pat_flame_rbow,
 	},
 	(led_pattern_t) {
 		.name = "Solid",
