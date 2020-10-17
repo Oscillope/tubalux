@@ -56,7 +56,13 @@ int8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t 
 	if (cur_menu != menu || (dir && (menu->selection + dir >= 0) && (menu->selection + dir < menu_items))) {
 		ssd1306_software_scroll(dev, 1, 7);
 		menu->selection += dir;
-		for (int i = 0; i < menu_items; i++) {
+		uint8_t start = ((menu_items > 7) ? menu->selection : 0);
+		uint8_t end = (((start + 7) > menu_items) ? menu_items : (start + 7));
+		if (end - start < 7) {
+			start = end - 7;
+		}
+		ESP_LOGD(TAG, "generating menu from %u to %u selection %u items %u", start, end, menu->selection, menu_items);
+		for (uint8_t i = start; i < end; i++) {
 			ssd1306_scroll_text(dev, menu[i].name, sizeof(menu[i].name), (i == menu->selection));
 		}
 		cur_menu = menu;
