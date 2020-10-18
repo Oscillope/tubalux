@@ -176,22 +176,28 @@ void pat_pulse(led_strip_t* strip)
 				self.leds[i] = color
 			self.leds.write()
 			sleep(self.period)
-
-	def pat_rgb_party(self, num):
-		pos = 0
-		cycle = 0
-		while (not self.pat_chg):
-			self.leds[pos] = self.hsv2rgb(cycle * 90, 1, self.intens)
-			self.leds.write()
-			pos = (pos + 1) % num
-			if (pos == 0):
-				cycle = (cycle + 1) % 3
-			sleep(self.period / 16)
 */
+
+void pat_rgb_party(led_strip_t* strip)
+{
+	int pos = 0;
+	uint8_t cycle = 0;
+	while (!led_should_stop()) {
+		ESP_ERROR_CHECK(strip->set_pixel(strip, pos, (cycle == 0 ? led_get_intensity() : 0),
+							     (cycle == 1 ? led_get_intensity() : 0),
+							     (cycle == 2 ? led_get_intensity() : 0)));
+		ESP_ERROR_CHECK(strip->refresh(strip, 0));
+		pos = (pos + 1) % led_get_num();
+		if (pos == 0) {
+			cycle = (cycle + 1) % 3;
+		}
+		vTaskDelay(pdMS_TO_TICKS(led_get_period() / led_get_num()));
+	}
+}
 
 uint32_t esp_random_range(uint32_t min, uint32_t max)
 {
-	return (((esp_random() * (max - min)) / UINT_MAX) + min);
+	return (esp_random() % (max - min + 1)) + min;
 }
 
 // adapted from an arduino pattern at:
@@ -203,10 +209,10 @@ void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
 	uint32_t ahue = hmin;
 	ESP_ERROR_CHECK(strip->clear(strip, 0));
 	while (!led_should_stop()){
-		uint32_t idelay = esp_random_range(2, 20);
+		uint32_t idelay = esp_random_range(20, 100);
 		uint32_t randtemp = esp_random_range(3, 6);
 		uint32_t hinc = (hdif / led_get_num()) + randtemp;
-		uint32_t spread = esp_random_range(5, 40);
+		uint32_t spread = esp_random_range(5, led_get_num() / 3);
 		uint32_t start = esp_random_range(0, led_get_num() - spread);
 		for (int i = start; i < (start + spread); i++) {
 			if ((ahue + hinc) > hmax) {
@@ -220,7 +226,7 @@ void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
 			ESP_ERROR_CHECK(strip->refresh(strip, 0));
 			vTaskDelay(pdMS_TO_TICKS(idelay));
 		}
-		vTaskDelay(pdMS_TO_TICKS(led_get_period()));
+		//vTaskDelay(pdMS_TO_TICKS(led_get_period() * 8));
 	}
 }
 
@@ -264,6 +270,10 @@ led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "Pulse",
 		.start = pat_pulse,
+	},
+	(led_pattern_t) {
+		.name = "RGB Party",
+		.start = pat_rgb_party,
 	},
 	(led_pattern_t) {
 		.name = "R flame",
