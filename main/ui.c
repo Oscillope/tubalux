@@ -203,6 +203,47 @@ void ui_loop(void* parameters)
 			}
 			break;
 		}
+		case UI_STATE_COLOR:
+		{
+			ssd1306_display_text(dev, 3, "     intens+", 12, false);
+			ssd1306_display_text(dev, 4, "color- + color+", 15, false);
+			ssd1306_display_text(dev, 5, "     intens-", 12, false);
+			switch (current) {
+			case UI_BTN_NONE:
+				idle_timer += UI_LOOP_PERIOD;
+				if (idle_timer > UI_IDLE_TIMEOUT) {
+					idle_timer = 0;
+					cur_menu = NULL;
+					if (ui_change_state(UI_STATE_IDLE)) {
+						ssd1306_clear_screen(dev, false);
+					}
+				}
+				break;
+			case UI_BTN_UP:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() + 10) % 100);
+				break;
+			case UI_BTN_DN:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() - 10) % 100);
+				break;
+			case UI_BTN_L:
+				idle_timer = 0;
+				led_set_primary_hue((led_get_primary_hue() - 10) % 360);
+				break;
+			case UI_BTN_R:
+				idle_timer = 0;
+				led_set_primary_hue((led_get_primary_hue() + 10) % 360);
+				break;
+			case UI_BTN_PRS:
+				ui_change_state(UI_STATE_IDLE);
+				ssd1306_clear_screen(dev, false);
+				break;
+			default:
+				break;
+			}
+			break;
+		}
 		default:
 			break;
 		}
