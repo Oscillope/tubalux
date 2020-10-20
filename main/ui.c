@@ -19,7 +19,7 @@
 #define TAG "UI"
 
 #define UI_LOOP_PERIOD		100
-#define UI_IDLE_TIMEOUT		5000
+#define UI_IDLE_TIMEOUT		10000
 
 typedef enum {
 	UI_STATE_OFF,
