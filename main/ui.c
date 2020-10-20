@@ -143,6 +143,7 @@ void ui_loop(void* parameters)
 				 * this also covers the case where the user presses the button while the
 				 * fade-out is happening */
 			}
+			/* fall through */
 		case UI_STATE_OFF:
 			/* Wait for any button press and go back to IDLE */
 			xTaskNotifyWait(0, UINT32_MAX, &buttons, portMAX_DELAY);
