@@ -98,7 +98,6 @@ void ui_loop(void* parameters)
 		/* Disable interrupts for GPIO36 and 39 before ADC read. See Errata 3.11 */
 		ui_isr_disable();
 		snprintf(status, sizeof(status), "          %4umV", (uint32_t)(adc1_get_raw(ADC1_CHANNEL_7) * 2));
-		ESP_LOGI(TAG, "adc raw %u", adc1_get_raw(ADC1_CHANNEL_7));
 		vTaskDelay(1);
 		ui_isr_enable();
 		ssd1306_display_text(dev, 0, status, strlen(status), true);
