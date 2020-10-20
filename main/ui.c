@@ -1,32 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "driver/adc_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_adc_cal.h"
+#include "driver/adc.h"
 #include "driver/gpio.h"
 #include "ssd1306.h"
 #include "font8x8_basic.h"
 
 #include "leds.h"
 #include "led_patterns.h"
+#include "ui_buttons.h"
 #include "ui.h"
 
 #define TAG "UI"
 
 #define UI_LOOP_PERIOD		100
 #define UI_IDLE_TIMEOUT		5000
-
-typedef enum {
-	UI_BTN_NONE = 0,
-	UI_BTN_DN,
-	UI_BTN_UP,
-	UI_BTN_L,
-	UI_BTN_R,
-	UI_BTN_PRS,
-	UI_BTN_MAX
-} ui_btn_t;
 
 typedef enum {
 	UI_STATE_OFF,
@@ -40,7 +33,9 @@ typedef enum {
 
 static ui_state_t state = UI_STATE_IDLE;
 static ui_menu_t* cur_menu = NULL;
+static TaskHandle_t ui_task = NULL;
 
+/* Helper functions */
 uint8_t ui_change_state(ui_state_t new_state)
 {
 	if (state != new_state) {
@@ -51,7 +46,7 @@ uint8_t ui_change_state(ui_state_t new_state)
 	return 0;
 }
 
-int8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t dir)
+uint8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t dir)
 {
 	if (cur_menu != menu || (dir && (menu->selection + dir >= 0) && (menu->selection + dir < menu_items))) {
 		ssd1306_software_scroll(dev, 1, 7);
@@ -70,6 +65,12 @@ int8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t 
 	return cur_menu->selection;
 }
 
+/* Button callbacks */
+void ui_btn_callback(uint32_t buttons)
+{
+	xTaskNotify(ui_task, buttons, eSetBits);
+}
+
 void ui_loop(void* parameters)
 {
 	SSD1306_t* dev = (SSD1306_t*)parameters;
@@ -84,99 +85,82 @@ void ui_loop(void* parameters)
 	ssd1306_clear_screen(dev, false);
 
 	/* Battery ADC setup */
-	uint32_t voltage = 0;
 	char status[17];
-	esp_adc_cal_characteristics_t chars = { 0 };
-	esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &chars);
-	/* Button configuration */
-	gpio_config_t gpio_conf = {
-		/* R: 32    L: 33       UP: 34      DN: 36      PRS: 39 */
-		BIT64(32) | BIT64(33) | BIT64(34) | BIT64(36) | BIT64(39),
-		GPIO_MODE_INPUT,
-		GPIO_PULLUP_ENABLE,
-		GPIO_PULLDOWN_DISABLE,
-		GPIO_INTR_DISABLE };
-	gpio_config(&gpio_conf);
+	adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
+	adc1_config_width(ADC_WIDTH_12Bit);
 
 	uint32_t idle_timer = 0;
+	uint32_t buttons = 0;
 	TickType_t before, after;
 
 	while (true) {
-		//ssd1306_clear_screen(dev, false);
 		before = xTaskGetTickCount();
-		esp_adc_cal_get_voltage(ADC_CHANNEL_7, &chars, &voltage);
-		snprintf(status, sizeof(status), "          %4umV", voltage * 2);
+		/* Disable interrupts for GPIO36 and 39 before ADC read. See Errata 3.11 */
+		ui_isr_disable();
+		snprintf(status, sizeof(status), "          %4umV", (uint32_t)(adc1_get_raw(ADC1_CHANNEL_7) * 2));
+		ESP_LOGI(TAG, "adc raw %u", adc1_get_raw(ADC1_CHANNEL_7));
+		vTaskDelay(1);
+		ui_isr_enable();
 		ssd1306_display_text(dev, 0, status, strlen(status), true);
 
-		ui_btn_t current = UI_BTN_NONE;
-		if (!gpio_get_level(GPIO_NUM_32)) {
-			current = UI_BTN_R;
-		} else if (!gpio_get_level(GPIO_NUM_33)) {
-			current = UI_BTN_L;
-		} else if (!gpio_get_level(GPIO_NUM_34)) {
-			current = UI_BTN_UP;
-		} else if (!gpio_get_level(GPIO_NUM_36)) {
-			current = UI_BTN_DN;
-		} else if (!gpio_get_level(GPIO_NUM_39)) {
-			current = UI_BTN_PRS;
-		}
 		switch (state) {
 		case UI_STATE_IDLE:
-			if (!current) {
+			ssd1306_display_text(dev, 3, "     color", 11, false);
+			ssd1306_display_text(dev, 4, "   pat + tempo", 14, false);
+			ssd1306_display_text(dev, 5, "     intens.", 12, false);
+			switch (buttons) {
+			case UI_BTN_NONE:
 				idle_timer += UI_LOOP_PERIOD;
 				if (idle_timer > UI_IDLE_TIMEOUT) {
 					ssd1306_fadeout(dev);
 					ssd1306_contrast(dev, 0);
 					ui_change_state(UI_STATE_OFF);
 				}
-			}
-			ssd1306_display_text(dev, 3, "     color", 11, false);
-			ssd1306_display_text(dev, 4, "   pat + tempo", 14, false);
-			ssd1306_display_text(dev, 5, "     intens.", 12, false);
-			/* fall through */
-		case UI_STATE_OFF:
-			if (current) {
+				break;
+			case UI_BTN_L:
 				idle_timer = 0;
-				/* clean this up when I'm sober */
-				if (state == UI_STATE_IDLE) {
-					ui_state_t new_state = state;
-					switch (current) {
-					case UI_BTN_L:
-						new_state = UI_STATE_PATTERN;
-						break;
-					case UI_BTN_R:
-						new_state = UI_STATE_TEMPO;
-						break;
-					case UI_BTN_UP:
-						new_state = UI_STATE_COLOR;
-						break;
-					case UI_BTN_DN:
-						new_state = UI_STATE_INTENSITY;
-						break;
-					default:
-						break;
-					}
-					if (ui_change_state(new_state)) {
-						ssd1306_clear_screen(dev, false);
-					}
-				} else if (state == UI_STATE_OFF) {
-					ui_change_state(UI_STATE_IDLE);
-					ssd1306_contrast(dev, 0xff);
-				}
+				ui_change_state(UI_STATE_PATTERN);
+				break;
+			case UI_BTN_R:
+				idle_timer = 0;
+				ui_change_state(UI_STATE_TEMPO);
+				break;
+			case UI_BTN_UP:
+				idle_timer = 0;
+				ui_change_state(UI_STATE_COLOR);
+				break;
+			case UI_BTN_DN:
+				idle_timer = 0;
+				ui_change_state(UI_STATE_INTENSITY);
+				break;
+			default:
+				ESP_LOGW(TAG, "Unknown button %08x", buttons);
+				break;
 			}
+			if (state != UI_STATE_OFF) {
+				break;
+				/* If we just transitioned to the off state, don't bother going around the loop again.
+				 * this also covers the case where the user presses the button while the
+				 * fade-out is happening */
+			}
+		case UI_STATE_OFF:
+			/* Wait for any button press and go back to IDLE */
+			xTaskNotifyWait(0, UINT32_MAX, &buttons, portMAX_DELAY);
+			ui_change_state(UI_STATE_IDLE);
+			idle_timer = 0;
+			ssd1306_contrast(dev, 0xff);
 			break;
 		case UI_STATE_PATTERN:
 		{
-			ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
-			switch (current) {
+			uint8_t selection = ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
+			switch (buttons) {
 			case UI_BTN_NONE:
 				idle_timer += UI_LOOP_PERIOD;
 				if (idle_timer > UI_IDLE_TIMEOUT) {
 					idle_timer = 0;
 					cur_menu = NULL;
-					if (ui_change_state(UI_STATE_IDLE)) {
-						ssd1306_clear_screen(dev, false);
-					}
+					ui_change_state(UI_STATE_IDLE);
+					ssd1306_clear_screen(dev, false);
 				}
 				break;
 			case UI_BTN_UP:
@@ -188,17 +172,15 @@ void ui_loop(void* parameters)
 				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, -1);
 				break;
 			case UI_BTN_PRS:
-			{
-				led_pattern_t* patterns = get_patterns();
-				int8_t selection = ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
-				led_set_pattern(&patterns[selection]);
 				idle_timer = 0;
+				led_pattern_t* patterns = get_patterns();
+				led_set_pattern(&patterns[selection]);
 				cur_menu = NULL;
-				ssd1306_clear_screen(dev, false);
 				ui_change_state(UI_STATE_IDLE);
+				ssd1306_clear_screen(dev, false);
 				break;
-			}
 			default:
+				ESP_LOGW(TAG, "Unknown button %08x", buttons);
 				break;
 			}
 			break;
@@ -208,15 +190,13 @@ void ui_loop(void* parameters)
 			ssd1306_display_text(dev, 3, "     intens+", 12, false);
 			ssd1306_display_text(dev, 4, "color- + color+", 15, false);
 			ssd1306_display_text(dev, 5, "     intens-", 12, false);
-			switch (current) {
+			switch (buttons) {
 			case UI_BTN_NONE:
 				idle_timer += UI_LOOP_PERIOD;
 				if (idle_timer > UI_IDLE_TIMEOUT) {
 					idle_timer = 0;
-					cur_menu = NULL;
-					if (ui_change_state(UI_STATE_IDLE)) {
-						ssd1306_clear_screen(dev, false);
-					}
+					ui_change_state(UI_STATE_IDLE);
+					ssd1306_clear_screen(dev, false);
 				}
 				break;
 			case UI_BTN_UP:
@@ -236,15 +216,19 @@ void ui_loop(void* parameters)
 				led_set_primary_hue((led_get_primary_hue() + 10) % 360);
 				break;
 			case UI_BTN_PRS:
+				idle_timer = 0;
 				ui_change_state(UI_STATE_IDLE);
 				ssd1306_clear_screen(dev, false);
 				break;
 			default:
+				ESP_LOGW(TAG, "Unknown button %08x", buttons);
 				break;
 			}
 			break;
 		}
 		default:
+			ESP_LOGW(TAG, "Unknown state %u", state);
+			ui_change_state(UI_STATE_IDLE);
 			break;
 		}
 		after = xTaskGetTickCount();
@@ -253,7 +237,7 @@ void ui_loop(void* parameters)
 			ESP_LOGI(TAG, "this loop took %d", ((after - before) * portTICK_PERIOD_MS));
 		}
 
-		vTaskDelay(pdMS_TO_TICKS(UI_LOOP_PERIOD));
+		xTaskNotifyWait(0, UINT32_MAX, &buttons, pdMS_TO_TICKS(UI_LOOP_PERIOD));
 	}
 
 	vTaskDelete(NULL);
@@ -287,5 +271,9 @@ void ui_init(void)
 	spi_init(&dev, 128, 64);
 #endif // CONFIG_SPI_INTERFACE
 
-	xTaskCreatePinnedToCore(ui_loop, "UI loop", 4096, &dev, 2, NULL, 0);
+	xTaskCreatePinnedToCore(ui_loop, "UI loop", 4096, &dev, 2, &ui_task, 0);
+
+	/* Initialize button ISR and debouncer */
+	ui_buttons_init();
+	ui_buttons_reg_callback(ui_btn_callback);
 }
