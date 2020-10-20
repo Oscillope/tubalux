@@ -209,7 +209,7 @@ void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
 	uint32_t ahue = hmin;
 	ESP_ERROR_CHECK(strip->clear(strip, 0));
 	while (!led_should_stop()){
-		uint32_t idelay = esp_random_range(20, 100);
+		uint32_t idelay = esp_random_range(20, 200);
 		uint32_t randtemp = esp_random_range(3, 6);
 		uint32_t hinc = (hdif / led_get_num()) + randtemp;
 		uint32_t spread = esp_random_range(5, led_get_num() / 3);
@@ -222,11 +222,10 @@ void _pat_flame_internal(led_strip_t* strip, uint32_t hmin, uint32_t hmax)
 			}
 			led_strip_hsv2rgb(ahue, 100, led_get_intensity(), &r, &g, &b);
 			ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
-			ESP_ERROR_CHECK(strip->set_pixel(strip, led_get_num() - i - 1, r, g, b));
 			ESP_ERROR_CHECK(strip->refresh(strip, 0));
 			vTaskDelay(pdMS_TO_TICKS(idelay));
 		}
-		//vTaskDelay(pdMS_TO_TICKS(led_get_period() * 8));
+		vTaskDelay(pdMS_TO_TICKS(esp_random_range(0, 4) * led_get_period()));
 	}
 }
 
