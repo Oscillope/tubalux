@@ -49,16 +49,17 @@ uint8_t ui_change_state(ui_state_t new_state)
 uint8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t dir)
 {
 	if (cur_menu != menu || (dir && (menu->selection + dir >= 0) && (menu->selection + dir < menu_items))) {
-		ssd1306_software_scroll(dev, 1, 7);
 		menu->selection += dir;
-		uint8_t start = ((menu_items > 7) ? menu->selection : 0);
+		uint8_t start = ((menu->selection >= 7) ? menu->selection : 0);
 		uint8_t end = (((start + 7) > menu_items) ? menu_items : (start + 7));
+		/* backtrack a bit in case the number of items is not a multiple of 7 */
 		if (end - start < 7) {
 			start = end - 7;
 		}
 		ESP_LOGD(TAG, "generating menu from %u to %u selection %u items %u", start, end, menu->selection, menu_items);
 		for (uint8_t i = start; i < end; i++) {
-			ssd1306_scroll_text(dev, menu[i].name, sizeof(menu[i].name), (i == menu->selection));
+			uint8_t pos = (i - start) + 1;
+			ssd1306_display_text(dev, pos, menu[i].name, sizeof(menu[i].name), (i == menu->selection));
 		}
 		cur_menu = menu;
 	}
@@ -86,6 +87,7 @@ void ui_loop(void* parameters)
 
 	/* Battery ADC setup */
 	char status[17];
+	uint32_t voltage = 0;
 	adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
 	adc1_config_width(ADC_WIDTH_12Bit);
 
@@ -97,9 +99,10 @@ void ui_loop(void* parameters)
 		before = xTaskGetTickCount();
 		/* Disable interrupts for GPIO36 and 39 before ADC read. See Errata 3.11 */
 		ui_isr_disable();
-		snprintf(status, sizeof(status), "          %4umV", (uint32_t)(adc1_get_raw(ADC1_CHANNEL_7) * 1.76f));
+		voltage = (uint32_t)(adc1_get_raw(ADC1_CHANNEL_7) * 1.76f);
 		vTaskDelay(1);
 		ui_isr_enable();
+		snprintf(status, sizeof(status), "          %4umV", voltage);
 		ssd1306_display_text(dev, 0, status, strlen(status), true);
 
 		switch (state) {
@@ -165,11 +168,11 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 1);
+				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, -1);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, -1);
+				ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 1);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;
