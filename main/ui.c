@@ -142,7 +142,7 @@ void ui_loop(void* parameters)
 			switch (buttons) {
 			case UI_BTN_NONE:
 				idle_timer += UI_LOOP_PERIOD;
-				if (idle_timer > UI_IDLE_TIMEOUT) {
+				if (idle_timer > (UI_IDLE_TIMEOUT * 2)) {
 					ssd1306_fadeout(dev);
 					ssd1306_contrast(dev, 0);
 					ui_change_state(UI_STATE_OFF);
