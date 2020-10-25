@@ -66,6 +66,16 @@ uint8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t
 	return cur_menu->selection;
 }
 
+uint8_t ui_idle_service(uint32_t* timer)
+{
+	*timer += UI_LOOP_PERIOD;
+	if (*timer > UI_IDLE_TIMEOUT) {
+		*timer = 0;
+		return ui_change_state(UI_STATE_IDLE);
+	}
+	return 0;
+}
+
 /* Button callbacks */
 void ui_btn_callback(uint32_t buttons)
 {
@@ -158,11 +168,7 @@ void ui_loop(void* parameters)
 			uint8_t selection = ui_show_menu(dev, get_pattern_menu(), LED_NUM_PATTERNS, 0);
 			switch (buttons) {
 			case UI_BTN_NONE:
-				idle_timer += UI_LOOP_PERIOD;
-				if (idle_timer > UI_IDLE_TIMEOUT) {
-					idle_timer = 0;
-					cur_menu = NULL;
-					ui_change_state(UI_STATE_IDLE);
+				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
 				}
 				break;
@@ -195,10 +201,7 @@ void ui_loop(void* parameters)
 			ssd1306_display_text(dev, 5, "     intens-", 12, false);
 			switch (buttons) {
 			case UI_BTN_NONE:
-				idle_timer += UI_LOOP_PERIOD;
-				if (idle_timer > UI_IDLE_TIMEOUT) {
-					idle_timer = 0;
-					ui_change_state(UI_STATE_IDLE);
+				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
 				}
 				break;
@@ -225,6 +228,18 @@ void ui_loop(void* parameters)
 				break;
 			default:
 				ESP_LOGW(TAG, "Unknown button %08x", buttons);
+				break;
+			}
+			break;
+		}
+		case UI_STATE_TEMPO:
+		{
+			ssd1306_display_text(dev, 4, "tempo- -TAP- tempo+", 16, false);
+			switch (buttons) {
+			case UI_BTN_NONE:
+				if (ui_idle_service(&idle_timer)) {
+					ssd1306_clear_screen(dev, false);
+				}
 				break;
 			}
 			break;
