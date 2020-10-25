@@ -34,6 +34,8 @@ typedef enum {
 static ui_state_t state = UI_STATE_IDLE;
 static ui_menu_t* cur_menu = NULL;
 static TaskHandle_t ui_task = NULL;
+static uint32_t cur_avg = 0;
+static uint8_t avg_samples = 0;
 
 /* Helper functions */
 uint8_t ui_change_state(ui_state_t new_state)
@@ -80,6 +82,23 @@ uint8_t ui_idle_service(uint32_t* timer)
 void ui_btn_callback(uint32_t buttons)
 {
 	xTaskNotify(ui_task, buttons, eSetBits);
+}
+
+void ui_btn_tempo_callback(uint32_t buttons)
+{
+	static TickType_t last_timer;
+	if (buttons & UI_BTN_PRS) {
+		if (last_timer) {
+			TickType_t now = xTaskGetTickCount();
+			cur_avg += (now - last_timer) * portTICK_PERIOD_MS;
+			avg_samples++;
+		}
+		last_timer = xTaskGetTickCount();
+	} else if (buttons == UI_BTN_NONE) {
+		last_timer = 0;
+		cur_avg = 0;
+		avg_samples = 0;
+	}
 }
 
 void ui_loop(void* parameters)
@@ -234,12 +253,34 @@ void ui_loop(void* parameters)
 		}
 		case UI_STATE_TEMPO:
 		{
-			ssd1306_display_text(dev, 4, "tempo- -TAP- tempo+", 16, false);
+			ssd1306_display_text(dev, 3, "       tempo+", 16, false);
+			ssd1306_display_text(dev, 4, "       -TAP-", 16, false);
+			ssd1306_display_text(dev, 5, "       tempo-", 16, false);
 			switch (buttons) {
 			case UI_BTN_NONE:
+				if (avg_samples) {
+					char tempo[8];
+					snprintf(tempo, sizeof(tempo), "%u", cur_avg / avg_samples);
+					ssd1306_display_text(dev, 2, tempo, 8, false);
+				}
 				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
+					ui_buttons_reg_callback(ui_btn_callback);
+					led_set_period(cur_avg / avg_samples);
+					ui_btn_tempo_callback(UI_BTN_NONE);
 				}
+				break;
+			case UI_BTN_UP:
+				idle_timer = 0;
+				led_set_period((led_get_period() - 10) % 1000);
+				break;
+			case UI_BTN_DN:
+				idle_timer = 0;
+				led_set_period((led_get_period() + 10) % 1000);
+				break;
+			case UI_BTN_PRS:
+				idle_timer = 0;
+				ui_buttons_reg_callback(ui_btn_tempo_callback);
 				break;
 			}
 			break;
