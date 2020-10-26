@@ -150,18 +150,22 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_L:
 				idle_timer = 0;
+				ssd1306_clear_screen(dev, false);
 				ui_change_state(UI_STATE_PATTERN);
 				break;
 			case UI_BTN_R:
 				idle_timer = 0;
+				ssd1306_clear_screen(dev, false);
 				ui_change_state(UI_STATE_TEMPO);
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
+				ssd1306_clear_screen(dev, false);
 				ui_change_state(UI_STATE_COLOR);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
+				ssd1306_clear_screen(dev, false);
 				ui_change_state(UI_STATE_INTENSITY);
 				break;
 			default:
@@ -253,15 +257,16 @@ void ui_loop(void* parameters)
 		}
 		case UI_STATE_TEMPO:
 		{
-			ssd1306_display_text(dev, 3, "       tempo+", 16, false);
-			ssd1306_display_text(dev, 4, "       -TAP-", 16, false);
-			ssd1306_display_text(dev, 5, "       tempo-", 16, false);
+			ssd1306_display_text(dev, 3, "     tempo+", 11, false);
+			ssd1306_display_text(dev, 4, "     -TAP-", 10, false);
+			ssd1306_display_text(dev, 5, "     tempo-", 11, false);
 			switch (buttons) {
 			case UI_BTN_NONE:
 				if (avg_samples) {
-					char tempo[8];
-					snprintf(tempo, sizeof(tempo), "%u", cur_avg / avg_samples);
-					ssd1306_display_text(dev, 2, tempo, 8, false);
+					char tempo[9];
+					snprintf(tempo, sizeof(tempo), "%4ubpm",
+						(uint32_t)(60000 / (cur_avg / avg_samples)));
+					ssd1306_display_text(dev, 2, tempo, strlen(tempo), false);
 				}
 				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
