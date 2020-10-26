@@ -98,7 +98,9 @@ void ui_btn_tempo_callback(uint32_t buttons)
 		last_timer = 0;
 		cur_avg = 0;
 		avg_samples = 0;
+		return;
 	}
+	xTaskNotify(ui_task, buttons, eSetBits);
 }
 
 void ui_loop(void* parameters)
@@ -257,16 +259,18 @@ void ui_loop(void* parameters)
 		}
 		case UI_STATE_TEMPO:
 		{
-			ssd1306_display_text(dev, 3, "     tempo+", 11, false);
-			ssd1306_display_text(dev, 4, "     -TAP-", 10, false);
-			ssd1306_display_text(dev, 5, "     tempo-", 11, false);
+			ssd1306_display_text(dev, 2, "     tempo+", 11, false);
+			ssd1306_display_text(dev, 3, "       |", 8, false);
+			ssd1306_display_text(dev, 4, "    - TAP - set", 15, false);
+			ssd1306_display_text(dev, 5, "       |", 8, false);
+			ssd1306_display_text(dev, 6, "     tempo-", 11, false);
 			switch (buttons) {
 			case UI_BTN_NONE:
 				if (avg_samples) {
 					char tempo[9];
 					snprintf(tempo, sizeof(tempo), "%4ubpm",
 						(uint32_t)(60000 / (cur_avg / avg_samples)));
-					ssd1306_display_text(dev, 2, tempo, strlen(tempo), false);
+					ssd1306_display_text(dev, 1, tempo, strlen(tempo), false);
 				}
 				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
@@ -284,6 +288,10 @@ void ui_loop(void* parameters)
 			case UI_BTN_DN:
 				idle_timer = 0;
 				led_set_period((led_get_period() + 100) % 1000);
+				break;
+			case UI_BTN_L:
+			case UI_BTN_R:
+				idle_timer = UI_IDLE_TIMEOUT; /* Next loop through go back to idle */
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;
