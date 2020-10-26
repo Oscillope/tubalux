@@ -266,17 +266,19 @@ void ui_loop(void* parameters)
 				if (ui_idle_service(&idle_timer)) {
 					ssd1306_clear_screen(dev, false);
 					ui_buttons_reg_callback(ui_btn_callback);
-					led_set_period(cur_avg / avg_samples);
+					if (avg_samples) {
+						led_set_period(cur_avg / avg_samples);
+					}
 					ui_btn_tempo_callback(UI_BTN_NONE);
 				}
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				led_set_period((led_get_period() - 10) % 1000);
+				led_set_period((led_get_period() - 100) % 1000);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				led_set_period((led_get_period() + 10) % 1000);
+				led_set_period((led_get_period() + 100) % 1000);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;
