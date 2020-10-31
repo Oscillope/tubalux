@@ -249,6 +249,34 @@ void pat_flame_rbow(led_strip_t* strip)
 	_pat_flame_internal(strip, 0, 360);
 }
 
+void pat_flicker(led_strip_t* strip)
+{
+	uint8_t r, g, b;
+	uint32_t num_flickers = esp_random_range(1, (led_get_num() / 16 ? led_get_num() / 16 : 1));
+	while (!led_should_stop()) {
+		uint32_t delay = esp_random_range(40, 160);
+		uint32_t prob = esp_random_range(20, 40);
+		for (int i = 0; i < led_get_num(); i++) {
+			if (!esp_random_range(0, prob)) {
+				led_strip_hsv2rgb(led_get_primary_hue(), 100, led_get_intensity(), &r, &g, &b);
+				ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+				if (!num_flickers) {
+					ESP_ERROR_CHECK(strip->refresh(strip, 0));
+					vTaskDelay(pdMS_TO_TICKS(delay));
+					num_flickers = esp_random_range(1, (led_get_num() / 16 ? led_get_num() / 16 : 1));
+				} else {
+					num_flickers--;
+					continue;
+				}
+			}
+			led_strip_hsv2rgb(led_get_secondary_hue(), 100, led_get_intensity(), &r, &g, &b);
+			ESP_ERROR_CHECK(strip->set_pixel(strip, i, r, g, b));
+		}
+		ESP_ERROR_CHECK(strip->refresh(strip, 0));
+		vTaskDelay(pdMS_TO_TICKS(led_get_period() / esp_random_range(2, 8)));
+	}
+}
+
 led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "Rainbow",
@@ -293,6 +321,10 @@ led_pattern_t patterns[LED_NUM_PATTERNS] = {
 	(led_pattern_t) {
 		.name = "Solid",
 		.start = pat_solid,
+	},
+	(led_pattern_t) {
+		.name = "Flicker",
+		.start = pat_flicker,
 	},
 };
 
