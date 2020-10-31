@@ -221,9 +221,9 @@ void ui_loop(void* parameters)
 		}
 		case UI_STATE_COLOR:
 		{
-			ssd1306_display_text(dev, 3, "     intens+", 12, false);
-			ssd1306_display_text(dev, 4, "color- + color+", 15, false);
-			ssd1306_display_text(dev, 5, "     intens-", 12, false);
+			ssd1306_display_text(dev, 3, "      hue2+", 11, false);
+			ssd1306_display_text(dev, 4, " hue1- + hue1+", 14, false);
+			ssd1306_display_text(dev, 5, "      hue2-", 11, false);
 			switch (buttons) {
 			case UI_BTN_NONE:
 				if (ui_idle_service(&idle_timer)) {
@@ -232,11 +232,11 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() + 10) % 100);
+				led_set_secondary_hue((led_get_secondary_hue() + 10) % 360);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() - 10) % 100);
+				led_set_secondary_hue((led_get_secondary_hue() - 10) % 360);
 				break;
 			case UI_BTN_L:
 				idle_timer = 0;
@@ -245,6 +245,44 @@ void ui_loop(void* parameters)
 			case UI_BTN_R:
 				idle_timer = 0;
 				led_set_primary_hue((led_get_primary_hue() + 10) % 360);
+				break;
+			case UI_BTN_PRS:
+				idle_timer = 0;
+				ui_change_state(UI_STATE_IDLE);
+				ssd1306_clear_screen(dev, false);
+				break;
+			default:
+				ESP_LOGW(TAG, "Unknown button %08x", buttons);
+				break;
+			}
+			break;
+		}
+		case UI_STATE_INTENSITY:
+		{
+			ssd1306_display_text(dev, 3, "    intens+20", 13, false);
+			ssd1306_display_text(dev, 4, " int-5 + int+5", 14, false);
+			ssd1306_display_text(dev, 5, "    intens-20", 13, false);
+			switch (buttons) {
+			case UI_BTN_NONE:
+				if (ui_idle_service(&idle_timer)) {
+					ssd1306_clear_screen(dev, false);
+				}
+				break;
+			case UI_BTN_UP:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() + 20) % 100);
+				break;
+			case UI_BTN_DN:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() - 20) % 100);
+				break;
+			case UI_BTN_L:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() - 5) % 100);
+				break;
+			case UI_BTN_R:
+				idle_timer = 0;
+				led_set_intensity((led_get_intensity() + 5) % 100);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;

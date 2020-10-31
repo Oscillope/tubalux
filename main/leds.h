@@ -11,6 +11,8 @@ void led_strip_hsv2rgb(uint32_t h, uint8_t s, uint8_t v, uint8_t* r, uint8_t* g,
 bool led_should_stop(void);
 void led_set_primary_hue(uint32_t new);
 uint32_t led_get_primary_hue(void);
+void led_set_secondary_hue(uint32_t new);
+uint32_t led_get_secondary_hue(void);
 void led_set_intensity(uint8_t new);
 uint8_t led_get_intensity(void);
 void led_set_pattern(led_pattern_t* pattern);
