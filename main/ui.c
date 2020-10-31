@@ -50,8 +50,14 @@ uint8_t ui_change_state(ui_state_t new_state)
 
 uint8_t ui_show_menu(SSD1306_t* dev, ui_menu_t* menu, uint8_t menu_items, int8_t dir)
 {
-	if (cur_menu != menu || (dir && (menu->selection + dir >= 0) && (menu->selection + dir < menu_items))) {
-		menu->selection += dir;
+	if (cur_menu != menu || dir) {
+		if ((int32_t)(menu->selection + dir) < 0) {
+			menu->selection = (menu_items - 1);
+		} else if (menu->selection + dir >= menu_items) {
+			menu->selection = 0;
+		} else {
+			menu->selection += dir;
+		}
 		uint8_t start = ((menu->selection >= 7) ? menu->selection : 0);
 		uint8_t end = (((start + 7) > menu_items) ? menu_items : (start + 7));
 		/* backtrack a bit in case the number of items is not a multiple of 7 */
