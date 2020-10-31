@@ -180,18 +180,17 @@ void pat_pulse(led_strip_t* strip)
 
 void pat_rgb_party(led_strip_t* strip)
 {
-	int pos = 0;
 	uint8_t cycle = 0;
 	while (!led_should_stop()) {
-		ESP_ERROR_CHECK(strip->set_pixel(strip, pos, (cycle == 0 ? led_get_intensity() : 0),
-							     (cycle == 1 ? led_get_intensity() : 0),
-							     (cycle == 2 ? led_get_intensity() : 0)));
-		ESP_ERROR_CHECK(strip->refresh(strip, 0));
-		pos = (pos + 1) % led_get_num();
-		if (pos == 0) {
-			cycle = (cycle + 1) % 3;
+		for (int i = 0; i < led_get_num(); i++) {
+			ESP_ERROR_CHECK(strip->set_pixel(strip, i, (cycle == 0 ? led_get_intensity() : 0),
+								   (cycle == 1 ? led_get_intensity() : 0),
+								   (cycle == 2 ? led_get_intensity() : 0)));
+			ESP_ERROR_CHECK(strip->refresh(strip, 0));
+			vTaskDelay(1);
 		}
-		vTaskDelay(pdMS_TO_TICKS(led_get_period() / led_get_num()));
+		cycle = (cycle + 1) % 3;
+		vTaskDelay(pdMS_TO_TICKS((led_get_period() / 3) - (led_get_period() / led_get_num())));
 	}
 }
 
