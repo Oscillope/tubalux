@@ -238,19 +238,19 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				led_set_secondary_hue((led_get_secondary_hue() + 10) % 360);
+				led_set_secondary_hue(led_get_secondary_hue() + 10);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				led_set_secondary_hue((led_get_secondary_hue() - 10) % 360);
+				led_set_secondary_hue(led_get_secondary_hue() - 10);
 				break;
 			case UI_BTN_L:
 				idle_timer = 0;
-				led_set_primary_hue((led_get_primary_hue() - 10) % 360);
+				led_set_primary_hue(led_get_primary_hue() - 10);
 				break;
 			case UI_BTN_R:
 				idle_timer = 0;
-				led_set_primary_hue((led_get_primary_hue() + 10) % 360);
+				led_set_primary_hue(led_get_primary_hue() + 10);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;
@@ -276,19 +276,19 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() + 20) % 100);
+				led_set_intensity(led_get_intensity() + 20);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() - 20) % 100);
+				led_set_intensity(led_get_intensity() - 20);
 				break;
 			case UI_BTN_L:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() - 5) % 100);
+				led_set_intensity(led_get_intensity() - 5);
 				break;
 			case UI_BTN_R:
 				idle_timer = 0;
-				led_set_intensity((led_get_intensity() + 5) % 100);
+				led_set_intensity(led_get_intensity() + 5);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;

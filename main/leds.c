@@ -13,7 +13,7 @@ static bool do_stop = false;
 static led_pattern_t* cur_pattern;
 static uint32_t hue = 0;		/* 0-360 */
 static uint32_t hue2 = 180;		/* 0-360 */
-static uint8_t intensity = 20;		/* 0-100 */
+static uint8_t intensity = 42;		/* 0-100 */
 static uint32_t period = 200;		/* milliseconds */
 
 bool led_should_stop()
@@ -27,7 +27,7 @@ bool led_should_stop()
 
 void led_set_primary_hue(uint32_t new)
 {
-	hue = new;
+	hue = new % 360;
 }
 
 uint32_t led_get_primary_hue()
@@ -37,7 +37,7 @@ uint32_t led_get_primary_hue()
 
 void led_set_secondary_hue(uint32_t new)
 {
-	hue2 = new;
+	hue2 = new % 360;
 }
 
 uint32_t led_get_secondary_hue()
@@ -47,7 +47,9 @@ uint32_t led_get_secondary_hue()
 
 void led_set_intensity(uint8_t new)
 {
-	intensity = new;
+	if (new <= 100) {
+		intensity = new;
+	}
 }
 
 uint8_t led_get_intensity()
