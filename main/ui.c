@@ -114,7 +114,7 @@ void ui_loop(void* parameters)
 	SSD1306_t* dev = (SSD1306_t*)parameters;
 
 	ssd1306_clear_screen(dev, false);
-	ssd1306_display_text(dev, 0, "    tubalux", 16, false);
+	ssd1306_display_text(dev, 0, "    tubalux", 11, false);
 	ssd1306_hardware_scroll(dev, SCROLL_DOWN);
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	ssd1306_hardware_scroll(dev, SCROLL_UP);
@@ -123,11 +123,13 @@ void ui_loop(void* parameters)
 	ssd1306_clear_screen(dev, false);
 
 	/* Battery ADC setup */
-	char status[17];
 	uint32_t voltage = 0;
 	adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
 	adc1_config_width(ADC_WIDTH_12Bit);
 
+	char status[17];
+	char hue_str[17];
+	char bpm_str[17];
 	uint32_t idle_timer = 0;
 	uint32_t buttons = 0;
 	TickType_t before, after;
@@ -139,8 +141,12 @@ void ui_loop(void* parameters)
 		voltage = (uint32_t)(adc1_get_raw(ADC1_CHANNEL_7) * 1.76f);
 		vTaskDelay(1);
 		ui_isr_enable();
-		snprintf(status, sizeof(status), "          %4umV", voltage);
-		ssd1306_display_text(dev, 0, status, strlen(status), true);
+		snprintf(status, sizeof(status), "%3u%%      %4umV", led_get_intensity(), voltage);
+		ssd1306_display_text(dev, 0, status, 16, true);
+		snprintf(hue_str, sizeof(hue_str), "1:%3u      2:%3u", led_get_primary_hue(), led_get_secondary_hue());
+		ssd1306_display_text(dev, 1, hue_str, 16, true);
+		snprintf(bpm_str, sizeof(bpm_str), "%5ubpm        ", (uint32_t)(60000 / led_get_period()));
+		ssd1306_display_text(dev, 7, bpm_str, 16, true);
 
 		switch (state) {
 		case UI_STATE_IDLE:
@@ -238,19 +244,19 @@ void ui_loop(void* parameters)
 				break;
 			case UI_BTN_UP:
 				idle_timer = 0;
-				led_set_secondary_hue(led_get_secondary_hue() + 10);
+				led_set_secondary_hue(led_get_secondary_hue() + 12);
 				break;
 			case UI_BTN_DN:
 				idle_timer = 0;
-				led_set_secondary_hue(led_get_secondary_hue() - 10);
+				led_set_secondary_hue(led_get_secondary_hue() - 12);
 				break;
 			case UI_BTN_L:
 				idle_timer = 0;
-				led_set_primary_hue(led_get_primary_hue() - 10);
+				led_set_primary_hue(led_get_primary_hue() - 12);
 				break;
 			case UI_BTN_R:
 				idle_timer = 0;
-				led_set_primary_hue(led_get_primary_hue() + 10);
+				led_set_primary_hue(led_get_primary_hue() + 12);
 				break;
 			case UI_BTN_PRS:
 				idle_timer = 0;
